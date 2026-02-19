@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "agent-playground"
+version = "0.1.0"
+description = "Playground for agentic AI experiments"
+authors = ["Dr. Benjamin Thomas <benjamin.p.thomas.0@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+openai = "^1.0.0"
+langchain = "^0.3.0"
+pydantic = "^2.0.0"
+numpy = "^1.26.4"
+pandas = "^2.0.0"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.0.0"
+black = "^24.0.0"
+ruff = "^0.7.0"
+pytest = "^8.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

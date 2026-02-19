@@ -1,0 +1,28 @@
+{
+    "name": "Agent Playground",
+    "dockerFile": "../Dockerfile",
+    "context": "..",
+    "remoteUser": "root",
+    "workspaceFolder": "/app",
+    "features": {},
+    "customizations": {
+      "vscode": {
+        "settings": {
+          "python.defaultInterpreterPath": "/usr/local/bin/python",
+          "terminal.integrated.defaultProfile.linux": "bash",
+          "editor.formatOnSave": true
+        },
+        "extensions": [
+          "ms-python.python",
+          "ms-python.vscode-pylance",
+          "ms-toolsai.jupyter",
+          "charliermarsh.ruff",
+          "esbenp.prettier-vscode"
+        ]
+      }
+    },
+    "mounts": [
+      "source=${localWorkspaceFolder}/:/app"
+    ]
+  }
+  
