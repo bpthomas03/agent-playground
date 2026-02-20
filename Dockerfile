@@ -16,9 +16,10 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Workdir
 WORKDIR /app
 
-# Copy project metadata and source
-COPY pyproject.toml README.md ./ 
+# Copy project metadata, source, and data
+COPY pyproject.toml README.md ./
 COPY src ./src
+COPY data ./data
 
 # Install dependencies and project
 RUN poetry config virtualenvs.create false \

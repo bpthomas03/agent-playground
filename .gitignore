@@ -2,6 +2,11 @@
 .env
 .env.*
 
+# Data (generated / large)
+data/
+/data/
+**/data/
+
 # Python
 __pycache__/
 *.py[cod]
