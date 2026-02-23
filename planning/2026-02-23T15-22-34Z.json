@@ -1,0 +1,169 @@
+{
+  "agreed_question": "How do major recurring themes and their emotional tones in dreams change across the lifespan within a single long-running diarist, and how do these patterns compare to those in other subjects?",
+  "rationale": "This addresses how dream content and affect evolve with age and life stage—central to theories of dream function—while leveraging the strengths of unsupervised textual analysis and the rich longitudinal data available; broader group comparison establishes which patterns are idiosyncratic versus widely shared.",
+  "approach": "- Use topic modeling (e.g., LDA) on the full corpus to extract and label major recurring themes.\n- For the long-running diarist, quantify theme prevalence and associated emotional tone (via affect/sentiment lexicon) in each life period (e.g., by decade or defined epochs).\n- Aggregate theme/affect trajectories for other subjects (pooled or by rough age/life stage, as data allows) and compare to the diarist’s patterns.\n- Visualize and statistically compare within-individual change and between-individual similarity/divergence, highlighting both universal and personal aspects of dream experience.",
+  "source_ideation": "/app/ideation/latest.json",
+  "timestamp": "2026-02-23T15:22:34Z",
+  "steps": [
+    {
+      "id": "1",
+      "action": "load_corpus",
+      "description": "Load the full dream corpus from data/clean_dreams.csv into a DataFrame for analysis.",
+      "inputs": [
+        "data/clean_dreams.csv"
+      ],
+      "outputs": [
+        "corpus_df"
+      ]
+    },
+    {
+      "id": "2",
+      "action": "preprocess_text",
+      "description": "Clean and tokenize the narrative column, removing stopwords and performing lemmatization, storing processed text for modeling.",
+      "inputs": [
+        "corpus_df"
+      ],
+      "outputs": [
+        "processed_corpus_df"
+      ]
+    },
+    {
+      "id": "3",
+      "action": "run_lda_topic_model",
+      "description": "Fit an LDA topic model on the processed narrative texts across the whole corpus to extract major recurring dream themes.",
+      "inputs": [
+        "processed_corpus_df"
+      ],
+      "outputs": [
+        "topic_model",
+        "document_topic_distributions"
+      ]
+    },
+    {
+      "id": "4",
+      "action": "label_topics",
+      "description": "Assign human-interpretable labels to each topic by inspecting top terms and representative narratives for each topic.",
+      "inputs": [
+        "topic_model",
+        "processed_corpus_df"
+      ],
+      "outputs": [
+        "topics_labeled.csv"
+      ]
+    },
+    {
+      "id": "5",
+      "action": "assign_topic_scores",
+      "description": "For each dream, assign the most probable topic(s) and store each dream's topic scores alongside its metadata.",
+      "inputs": [
+        "document_topic_distributions",
+        "corpus_df"
+      ],
+      "outputs": [
+        "dreams_with_topics.csv"
+      ]
+    },
+    {
+      "id": "6",
+      "action": "sentiment_analysis",
+      "description": "Use an affect/sentiment lexicon to compute the overall emotional tone for each dream narrative.",
+      "inputs": [
+        "processed_corpus_df"
+      ],
+      "outputs": [
+        "dreams_with_sentiment.csv"
+      ]
+    },
+    {
+      "id": "7",
+      "action": "merge_topics_sentiment",
+      "description": "Merge topic assignments and sentiment scores into a single DataFrame indexed by dream_id.",
+      "inputs": [
+        "dreams_with_topics.csv",
+        "dreams_with_sentiment.csv"
+      ],
+      "outputs": [
+        "dreams_with_topics_and_sentiment.csv"
+      ]
+    },
+    {
+      "id": "8",
+      "action": "define_life_periods_barb_sanders",
+      "description": "Define life periods or decades for Barb Sanders based on dream dates for longitudinal analysis.",
+      "inputs": [
+        "dreams_with_topics_and_sentiment.csv"
+      ],
+      "outputs": [
+        "barb_sanders_life_periods.csv"
+      ]
+    },
+    {
+      "id": "9",
+      "action": "aggregate_barb_theme_affect_by_period",
+      "description": "Aggregate theme prevalence and mean emotional tone per period for Barb Sanders' dreams.",
+      "inputs": [
+        "dreams_with_topics_and_sentiment.csv",
+        "barb_sanders_life_periods.csv"
+      ],
+      "outputs": [
+        "barb_theme_affect_by_period.csv"
+      ]
+    },
+    {
+      "id": "10",
+      "action": "define_life_stages_others",
+      "description": "Assign rough age groups or life stages to other subjects as data allow (e.g., based on dates).",
+      "inputs": [
+        "dreams_with_topics_and_sentiment.csv"
+      ],
+      "outputs": [
+        "other_subjects_life_stages.csv"
+      ]
+    },
+    {
+      "id": "11",
+      "action": "aggregate_others_theme_affect_by_stage",
+      "description": "Aggregate theme prevalence and mean emotional tone by life stage/age group for all non-Barb Sanders subjects.",
+      "inputs": [
+        "dreams_with_topics_and_sentiment.csv",
+        "other_subjects_life_stages.csv"
+      ],
+      "outputs": [
+        "others_theme_affect_by_stage.csv"
+      ]
+    },
+    {
+      "id": "12",
+      "action": "compare_trajectories",
+      "description": "Statistically compare and visualize Barb Sanders’ theme/affect trajectories to those of other subjects, highlighting universal and idiosyncratic patterns.",
+      "inputs": [
+        "barb_theme_affect_by_period.csv",
+        "others_theme_affect_by_stage.csv",
+        "topics_labeled.csv"
+      ],
+      "outputs": [
+        "outputs/comparison_stats.json",
+        "outputs/comparison_plots.png"
+      ]
+    },
+    {
+      "id": "13",
+      "action": "export_key_outputs",
+      "description": "Export all key result tables and visualizations to the outputs/ directory for further interpretation and reporting.",
+      "inputs": [
+        "topics_labeled.csv",
+        "barb_theme_affect_by_period.csv",
+        "others_theme_affect_by_stage.csv",
+        "outputs/comparison_stats.json",
+        "outputs/comparison_plots.png"
+      ],
+      "outputs": [
+        "outputs/topics_labeled.csv",
+        "outputs/barb_theme_affect_by_period.csv",
+        "outputs/others_theme_affect_by_stage.csv",
+        "outputs/comparison_stats.json",
+        "outputs/comparison_plots.png"
+      ]
+    }
+  ]
+}

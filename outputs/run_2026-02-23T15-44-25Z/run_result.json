@@ -1,0 +1,47 @@
+{
+  "run_dir": "/app/outputs/run_2026-02-23T15-44-25Z",
+  "plan_path": "/app/planning/latest.json",
+  "agreed_question": "How do major recurring themes and their emotional tones in dreams change across the lifespan within a single long-running diarist, and how do these patterns compare to those in other subjects?",
+  "success": true,
+  "timestamp": "2026-02-23T15-44-25Z",
+  "re_run": true,
+  "re_run_from_step": 4,
+  "steps": [
+    {
+      "step_id": "1",
+      "action": "load_corpus",
+      "returncode": 0,
+      "stdout": "Wrote DataFrame with 16479 rows to /app/outputs/run_2026-02-23T15-44-25Z/step_1_corpus_df.pkl\n",
+      "stderr": "",
+      "script_path": "/app/outputs/run_2026-02-23T15-44-25Z/step_1.py",
+      "fixed_and_retried": false
+    },
+    {
+      "step_id": "2",
+      "action": "preprocess_text",
+      "returncode": 0,
+      "stdout": "Wrote processed corpus DataFrame with lemmatized, stopword-removed narratives to /app/outputs/run_2026-02-23T15-44-25Z/step_2_processed_corpus_df.pkl.\n",
+      "stderr": "[nltk_data] Downloading package wordnet to /root/nltk_data...\n[nltk_data]   Package wordnet is already up-to-date!\n",
+      "script_path": "/app/outputs/run_2026-02-23T15-44-25Z/step_2.py",
+      "fixed_and_retried": false
+    },
+    {
+      "step_id": "3",
+      "action": "",
+      "returncode": 0,
+      "stdout": "Wrote topic model to /app/outputs/run_2026-02-23T15-44-25Z/step_3_topic_model.pkl and document-topic distributions to /app/outputs/run_2026-02-23T15-44-25Z/step_3_document_topic_distributions.pkl.\n",
+      "stderr": "",
+      "script_path": "/app/outputs/run_2026-02-23T15-44-25Z/step_3.py",
+      "fixed_and_retried": false
+    },
+    {
+      "step_id": "4",
+      "action": "",
+      "returncode": 0,
+      "stdout": "Wrote labeled topics table to /app/outputs/run_2026-02-23T15-44-25Z/topics_labeled.csv\n",
+      "stderr": "",
+      "script_path": "/app/outputs/run_2026-02-23T15-44-25Z/step_4.py",
+      "fixed_and_retried": false
+    }
+  ]
+}

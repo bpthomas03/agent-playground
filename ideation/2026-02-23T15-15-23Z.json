@@ -1,0 +1,6 @@
+{
+  "agreed_question": "How do major recurring themes and their emotional tones in dreams change across the lifespan within a single long-running diarist, and how do these patterns compare to those in other subjects?",
+  "rationale": "This addresses how dream content and affect evolve with age and life stage—central to theories of dream function—while leveraging the strengths of unsupervised textual analysis and the rich longitudinal data available; broader group comparison establishes which patterns are idiosyncratic versus widely shared.",
+  "approach": "- Use topic modeling (e.g., LDA) on the full corpus to extract and label major recurring themes.\n- For the long-running diarist, quantify theme prevalence and associated emotional tone (via affect/sentiment lexicon) in each life period (e.g., by decade or defined epochs).\n- Aggregate theme/affect trajectories for other subjects (pooled or by rough age/life stage, as data allows) and compare to the diarist’s patterns.\n- Visualize and statistically compare within-individual change and between-individual similarity/divergence, highlighting both universal and personal aspects of dream experience.",
+  "timestamp": "2026-02-23T15:15:23Z"
+}

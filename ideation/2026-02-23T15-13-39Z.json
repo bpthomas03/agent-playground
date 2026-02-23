@@ -1,0 +1,6 @@
+{
+  "agreed_question": "What are the most recurrent themes (topics) in dream reports, and how does their prevalence vary across individuals and historical periods (decades)?",
+  "rationale": "This addresses central psychological debates about universality versus individuality and cultural change in dream content, and is well matched to unsupervised NLP (topic modeling, motif counting) given the corpus format and size.",
+  "approach": "- Preprocess and run an unsupervised topic model (e.g., LDA) to extract interpretable dream themes.\n- Assign topic proportions to each dream report, and aggregate these by individual and decade.\n- Compare and visualize differences in theme prevalence across subjects and time.\n- Supplement with keyword/motif counts for classic dream themes to ensure psychological coverage.",
+  "timestamp": "2026-02-23T15:13:39Z"
+}

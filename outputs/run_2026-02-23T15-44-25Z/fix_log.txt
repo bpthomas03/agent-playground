@@ -1,0 +1,72 @@
+
+=== 2026-02-23 16:03:13 UTC ===
+SUMMARY: SUMMARY: Fixed step_4.py to correctly extract the LDA model and vectorizer from the pickled model bundle written by step_3.py, so feature names can be accessed and topics labeled.
+FILES CHANGED: 
+
+=== 2026-02-23 16:17:40 UTC ===
+SUMMARY: SUMMARY: Fixed step_4.py to properly extract the LDA model and vectorizer from the "model_bundle" dictionary written by step_3.py, so feature names and related logic work as expected.
+FILES CHANGED: 
+
+=== 2026-02-23 16:23:04 UTC ===
+SUMMARY: SUMMARY: step_4.py failed because step_3.py saved a dict containing the model and vectorizer, but step_4.py expects to load a single model object; fixed step_4.py to unpack the dict and use the contained objects.
+FILES CHANGED: 
+
+=== 2026-02-23 16:24:47 UTC ===
+SUMMARY: SUMMARY: Fixed step_4.py to properly extract the model and vectorizer from the pickled bundle saved in step_3.py, as step_3.py saves a dict, not a single model, which caused "Could not determine feature names from model."
+FILES CHANGED: 
+
+=== 2026-02-23 16:25:21 UTC ===
+SUMMARY: SUMMARY: Fixed step_4.py to load the model, vectorizer, and feature names from the bundled dict created by step_3.py, ensuring feature names and vectorizer are accessible for labeling topics.
+FILES CHANGED: 
+
+=== 2026-02-23 16:26:05 UTC ===
+SUMMARY: SUMMARY: Fixed step_3.py to ensure the processed text column ("processed_narrative") is passed into the LDA pipeline, enabling topic labeling in step_4.py to access correct feature names and reproduce the document-term matrix.
+FILES CHANGED: 
+
+=== 2026-02-23 16:31:12 UTC ===
+SUMMARY: SUMMARY: step_4.py failed because it expected the loaded model to be an estimator with feature extraction methods, but in fact it's a dict with 'lda_model' and 'vectorizer' keys; update step_4.py to unpack the model dict accordingly.
+FILES CHANGED: 
+
+=== 2026-02-23 16:31:51 UTC ===
+SUMMARY: SUMMARY: step_4.py failed because it expected the topic model to be an sklearn estimator, but step_3.py saves a dict (with 'lda_model', 'vectorizer', and others); step_4.py must be updated to handle this model bundle dictionary and extract objects properly.
+FILES CHANGED: 
+
+=== 2026-02-23 16:37:04 UTC ===
+SUMMARY: SUMMARY: Fixed step_3.py to ensure the outputted DataFrame contains the correct processed_narrative column for topic modeling, matching the output from step 2, so that step 4 can find and use it properly for recreating the document-term matrix and extracting feature names.
+FILES CHANGED: step_3.py
+
+=== 2026-02-23 16:37:51 UTC ===
+SUMMARY: SUMMARY: Fixed step_2.py to ensure that empty or all-stopword documents result in non-empty preprocessed strings if original text is nonempty (e.g., using a fallback or marking). This avoids "empty vocabulary" error during vectorization in step 3.
+FILES CHANGED: step_2.py
+
+=== 2026-02-23 16:38:49 UTC ===
+SUMMARY: SUMMARY: Lowered min_df from 2 to 1 in step_3.py's CountVectorizer so that vectorization does not fail even if many terms have low frequency; this avoids "After pruning, no terms remain" error.
+FILES CHANGED: step_3.py
+
+=== 2026-02-23 16:39:19 UTC ===
+SUMMARY: SUMMARY: Lowered min_df in step_3.py's CountVectorizer from 2 to 1 so that enough terms survive pruning after preprocessing, resolving the "no terms remain" error.
+FILES CHANGED: step_3.py
+
+=== 2026-02-23 16:40:16 UTC ===
+SUMMARY: SUMMARY: Lowered min_df in CountVectorizer and properly excluded "__empty__" marker from preprocessed documents to avoid 'no terms remain' error during LDA vectorization.
+FILES CHANGED: step_2.py, step_3.py
+
+=== 2026-02-23 16:40:56 UTC ===
+SUMMARY: SUMMARY: Fixed step_2.py to not remove all rows when all processed narratives were "__empty__"; step 2 was removing all data after preprocessing, causing step 3's "empty vocabulary" failure. Now, if all rows are "__empty__", step 2 keeps the original narratives to ensure downstream steps have input.
+FILES CHANGED: step_2.py
+
+=== 2026-02-23 16:44:21 UTC ===
+SUMMARY: SUMMARY: Fixed step_2.py so that "__empty__" marker documents are not passed to step 3, avoiding empty vocabulary errors by keeping only nonempty processed texts for vectorization.
+FILES CHANGED: step_2.py
+
+=== 2026-02-23 16:45:06 UTC ===
+SUMMARY: SUMMARY: Fixed step_2.py to prevent "__empty__" marker documents from being passed downstream; these blank/stopword-only docs must be completely dropped to avoid vectorization failure (empty vocabulary) in step_3.py.
+FILES CHANGED: step_2.py
+
+=== 2026-02-23 16:46:44 UTC ===
+SUMMARY: SUMMARY: Fixed step_2.py to ensure documents with only non-ASCII or non-alphabetic content are not discarded as empty after preprocessing; now, minimal narrative text is preserved as a fallback if nothing remains after filtering/lemmatization.
+FILES CHANGED: step_2.py
+
+=== 2026-02-23 16:52:25 UTC ===
+SUMMARY: SUMMARY: Fixed step_4.py to unpack the model/feature bundle saved by step_3.py (a dict with 'lda_model', 'vectorizer', and 'feature_names'), and to use 'processed_narrative' (not 'narrative') as the base text column when recreating the document-term matrix.
+FILES CHANGED: step_4.py

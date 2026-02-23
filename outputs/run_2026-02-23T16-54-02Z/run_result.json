@@ -1,0 +1,29 @@
+{
+  "run_dir": "/app/outputs/run_2026-02-23T16-54-02Z",
+  "plan_path": "/app/planning/latest.json",
+  "agreed_question": "How do major recurring themes and their emotional tones in dreams change across the lifespan within a single long-running diarist, and how do these patterns compare to those in other subjects?",
+  "success": false,
+  "timestamp": "2026-02-23T16-54-02Z",
+  "re_run": true,
+  "re_run_from_step": 2,
+  "steps": [
+    {
+      "step_id": "1",
+      "action": "load_corpus",
+      "returncode": 0,
+      "stdout": "Wrote DataFrame with 16479 rows to /app/outputs/run_2026-02-23T16-54-02Z/step_1_corpus_df.pkl\n",
+      "stderr": "",
+      "script_path": "/app/outputs/run_2026-02-23T16-54-02Z/step_1.py",
+      "fixed_and_retried": false
+    },
+    {
+      "step_id": "2",
+      "action": "preprocess_text",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "[nltk_data] Downloading package wordnet to /root/nltk_data...\n[nltk_data]   Package wordnet is already up-to-date!\nError during text preprocessing: \n**********************************************************************\n  Resource \u001b[93mpunkt_tab\u001b[0m not found.\n  Please use the NLTK Downloader to obtain the resource:\n\n  \u001b[31m>>> import nltk\n  >>> nltk.download('punkt_tab')\n  \u001b[0m\n  For more information see: https://www.nltk.org/data.html\n\n  Attempted to load \u001b[93mtokenizers/punkt_tab/english/\u001b[0m\n\n  Searched in:\n    - '/root/nltk_data'\n    - '/usr/local/nltk_data'\n    - '/usr/local/share/nltk_data'\n    - '/usr/local/lib/nltk_data'\n    - '/usr/share/nltk_data'\n    - '/usr/local/share/nltk_data'\n    - '/usr/lib/nltk_data'\n    - '/usr/local/lib/nltk_data'\n**********************************************************************\n\n",
+      "script_path": "/app/outputs/run_2026-02-23T16-54-02Z/step_2.py",
+      "fixed_and_retried": false
+    }
+  ]
+}

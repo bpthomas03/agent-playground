@@ -1,0 +1,4 @@
+
+=== 2026-02-23 16:55:23 UTC ===
+SUMMARY: SUMMARY: Removed the unnecessary and incorrect attempt to download 'punkt_tab' (which is not a real NLTK resource); only the 'punkt' tokenizer is needed for word_tokenize. This resolves the LookupError.
+FILES CHANGED: step_2.py
