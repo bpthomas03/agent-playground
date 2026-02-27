@@ -68,26 +68,50 @@ def load_run_context(run_dir: str) -> dict:
     return {"run_result": run_result, "steps": steps}
 
 
-EVALUATOR_SYSTEM = """You are an evaluator for a failed pipeline run. You will be given:
-1) The full run_result.json (which step failed, returncodes, stdout/stderr for each step).
-2) The complete source code of every step script (step_1.py through step_N.py).
+def _get_failing_step_and_hint(run_result: dict) -> tuple[str | None, str, str]:
+    """
+    Find the first step with returncode != 0; return (step_id, full_stderr, diagnosis_hint).
+    diagnosis_hint is a short steer for common failures (e.g. duplicate columns in melt).
+    """
+    for s in run_result.get("steps") or []:
+        if s.get("returncode", 0) != 0:
+            step_id = str(s.get("step_id", "?"))
+            stderr = (s.get("stderr") or "").strip()
+            hint = ""
+            if "melt" in stderr and ("dtype" in stderr or "DataFrame" in stderr or "id_vars" in stderr):
+                hint = "Common cause: duplicate column names. melt() expects each id_var to be a single column; if you concat two DataFrames that both have the same column name, that name appears twice and melt fails. Fix the FAILING step: use only one source for columns that exist in both inputs (e.g. take sentiment_score from binned_df only, not from topic_df)."
+            elif "empty vocabulary" in stderr or "no terms remain" in stderr:
+                hint = "Common cause: upstream step produced empty or all-stopword documents. Check the step that produces the text for vectorization; ensure it never yields a corpus where every document has zero terms."
+            elif "MultiIndex" in stderr or "duplicate" in stderr.lower():
+                hint = "Common cause: duplicate column names after concat/merge. Fix the FAILING step: drop or rename duplicate columns before using the DataFrame, or take shared columns from only one input."
+            return step_id, stderr, hint
+    return None, "", ""
 
-Your job: identify the root cause of the failure. The failing step might be failing because of a bug in an *earlier* step (e.g. step 4 fails because step 3 did not write a required file). You may fix *any* of the step scripts, not just the one that failed.
+
+EVALUATOR_SYSTEM = """You are an evaluator for a failed pipeline run. You will be given:
+1) FAILING STEP: the step that raised the exception, its full stderr/traceback, and a short diagnosis hint. Read this first.
+2) ORIGINAL PLAN: each step's id, action, description, inputs, outputs, output_spec, and notes. Use this for I/O contracts.
+3) FIX_LOG: previous fix attempts—do not repeat the same approach.
+4) run_result.json: full step list and stderr.
+5) The complete source code of every step script (step_1.py through step_N.py).
+
+Your job: identify the ROOT CAUSE and fix it. Important:
+- If the user provided USER GUIDANCE (e.g. "repeat the previous fix but for the affect columns"), follow it. That guidance overrides the general "do not repeat the same approach" rule—the user is explicitly steering you.
+- Often the bug is IN the failing step itself (e.g. that step builds a DataFrame with duplicate column names by concatenating two inputs that both have the same column, then calls melt() and fails). Fix that step's logic first: e.g. take shared columns from only one input, or drop duplicates before melt.
+- Fix an EARLIER step only when the failure is clearly due to missing/wrong data from upstream (e.g. "missing column X", "empty vocabulary" because step 2 dropped all text). Do not assume upstream is wrong when the traceback points to a line in the failing step (e.g. melt, concat)—fix the failing step's handling of its inputs.
 
 Output format (strict):
-1) First line must be: SUMMARY: <one-line plain English summary of what you changed and why>.
-2) Then for each file you want to replace, use this exact format:
+1) First line: SUMMARY: <one-line summary of what you changed and why, and which step(s) you fixed>.
+2) For each file to replace:
    ---EDIT step_N.py---
-   <full new contents of the file, line by line>
+   <full new contents>
    ---END---
 
 Rules:
-- Only output edits for step_*.py files that exist in the run (e.g. step_1.py, step_2.py, ...).
-- Use ---EDIT filename--- and ---END--- exactly as shown. You can edit one or multiple files.
-- Preserve the intent of the pipeline; only fix bugs or add missing outputs (e.g. if step 3 must save a vectorizer for step 4, add that to step 3).
-- Write error messages to stderr and exit with sys.exit(1) on failure.
-- If you cannot fix the run, output only: SUMMARY: <reason you cannot fix> and no ---EDIT--- blocks.
-- CRITICAL: You will be given a FIX_LOG of previous attempts for this run. Do NOT repeat the same approach. If the log shows "min_df", "__empty__", "processed_narrative" fallback, or similar fixes were already tried and the run still fails, infer the real root cause and try something different (e.g. different column, different vectorizer settings, or fix an earlier step that produces bad input)."""
+- Only edit step_*.py files that exist in the run.
+- Use ---EDIT filename--- and ---END--- exactly. You can edit multiple files.
+- Prefer fixing the FAILING step when the error is in that step's code (e.g. duplicate columns after concat). Fix upstream only when the error clearly indicates bad/missing data from a previous step.
+- Align fixes with the PLAN. Do NOT repeat approaches from FIX_LOG. On errors use stderr and sys.exit(1). If you cannot fix, output only SUMMARY: <reason> and no ---EDIT--- blocks."""
 
 
 def _parse_edits(response: str) -> tuple[list[tuple[str, str]], str]:
@@ -175,6 +199,22 @@ def get_from_step_from_fix_log(run_dir: str) -> int | None:
     return min(step_nums) if step_nums else None
 
 
+def load_plan_for_run(run_dir: str, run_result: dict | None = None) -> dict | None:
+    """Load the plan that produced this run. Prefer run_dir/plan_snapshot.json; else plan_path from run_result."""
+    snapshot = os.path.join(run_dir, "plan_snapshot.json")
+    if os.path.isfile(snapshot):
+        with open(snapshot, encoding="utf-8") as f:
+            return json.load(f)
+    plan_path = (run_result or {}).get("plan_path")
+    if not plan_path or not os.path.isabs(plan_path):
+        root = _project_root()
+        plan_path = os.path.normpath(os.path.join(root, plan_path or "planning/latest.json"))
+    if os.path.isfile(plan_path):
+        with open(plan_path, encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
 def get_fix_log_recent(run_dir: str, max_entries: int = 15) -> str:
     """Return the last max_entries block(s) from fix_log.txt for context. Returns '' if no log."""
     path = os.path.join(run_dir, _FIX_LOG)
@@ -200,9 +240,11 @@ def evaluate_and_fix(
     llm: "object",
     run_dir: str | None = None,
     base_path: str | None = None,
+    user_guidance: str | None = None,
 ) -> str:
     """
     Load run context, ask the LLM to propose fixes to any steps, apply edits, and record in fix_log.
+    If user_guidance is provided, it is shown first and overrides the general "do not repeat" rule when applicable.
     Returns a human-readable summary of what was done.
     """
     root = base_path or _project_root()
@@ -223,11 +265,38 @@ def evaluate_and_fix(
         return "Run succeeded; nothing to fix. Use evaluate after a failed run."
 
     fix_log_text = get_fix_log_recent(run_dir)
-    # Build user message: fix_log first (so model avoids repeating), then run_result, then step code
+    plan = load_plan_for_run(run_dir, run_result)
+    failed_step_id, failed_stderr, diagnosis_hint = _get_failing_step_and_hint(run_result)
+
+    # Build user message: optional USER GUIDANCE first (overrides don't-repeat when user asks), then FAILING STEP, fix_log, plan, run_result, step code
     parts = []
+    if user_guidance and user_guidance.strip():
+        parts.append("USER GUIDANCE (follow this; it overrides the general 'do not repeat' rule when the user is explicitly asking you to repeat or apply a similar fix):\n\n")
+        parts.append(user_guidance.strip())
+        parts.append("\n\n--- END USER GUIDANCE ---\n\n")
+    if failed_step_id:
+        parts.append("FAILING STEP (read this first):\n")
+        parts.append(f"  Step that raised the exception: step_{failed_step_id}.py\n\n")
+        parts.append("  Full stderr/traceback:\n")
+        parts.append((failed_stderr[:4000] + "\n... (truncated)" if len(failed_stderr) > 4000 else failed_stderr))
+        parts.append("\n\n")
+        if diagnosis_hint:
+            parts.append("  Diagnosis hint: " + diagnosis_hint + "\n\n")
+        parts.append("--- END FAILING STEP ---\n\n")
     if fix_log_text:
         parts.append(fix_log_text)
         parts.append("\n\n--- END FIX_LOG ---\n\n")
+    if plan:
+        parts.append("ORIGINAL PLAN (use output_spec and notes to check I/O contracts):\n")
+        for s in plan.get("steps") or []:
+            parts.append(f"  Step {s.get('id')} [{s.get('action')}]: {s.get('description')}")
+            parts.append(f"    inputs: {s.get('inputs')}; outputs: {s.get('outputs')}")
+            if s.get("output_spec"):
+                parts.append(f"    output_spec: {s.get('output_spec')}")
+            if s.get("notes"):
+                parts.append(f"    notes: {s.get('notes')}")
+            parts.append("")
+        parts.append("--- END PLAN ---\n\n")
     parts.append("RUN_RESULT (failed run):\n")
     parts.append(json.dumps(run_result, indent=2)[:8000])
     if len(json.dumps(run_result)) > 8000:
@@ -255,11 +324,14 @@ def re_run_existing(
     run_dir: str | None = None,
     from_step: int | None = None,
     base_path: str | None = None,
+    llm: "object | None" = None,
 ) -> str:
     """
     Re-execute step_*.py scripts in the run dir. If from_step is set (or inferred from
     fix_log), only run that step and later; otherwise run all. Preserves previous
     step results for steps before from_step. Overwrites run_result.json.
+    If all re-run steps succeed and the plan has more steps than existing scripts,
+    continues by generating and running the remaining steps (requires llm).
     """
     root = base_path or _project_root()
     run_dir = run_dir or get_latest_run_dir(root)
@@ -316,6 +388,38 @@ def re_run_existing(
             all_ok = False
             break
 
+    # If all re-run steps succeeded, continue the plan (generate and run remaining steps) if any
+    if all_ok and llm:
+        plan = load_plan_for_run(run_dir, {"steps": results, "plan_path": existing.get("plan_path")})
+        plan_steps = (plan or {}).get("steps") or []
+        if len(plan_steps) > len(results):
+            # Write current results so continue_run sees the updated step list
+            with open(run_result_path, "w", encoding="utf-8") as f:
+                json.dump({
+                    "run_dir": run_dir,
+                    "plan_path": existing.get("plan_path", ""),
+                    "agreed_question": existing.get("agreed_question", ""),
+                    "success": True,
+                    "timestamp": existing.get("timestamp", ""),
+                    "re_run": True,
+                    "re_run_from_step": first_run_step,
+                    "steps": results,
+                }, f, indent=2, ensure_ascii=False)
+            from src.executor import continue_run
+            cont_ok, _new_dicts, cont_msg = continue_run(llm, run_dir, base_path=root)
+            lines = [
+                f"Re-ran {run_dir}",
+                f"From step: {first_run_step} (ran {len(step_files_to_run)} step(s); {len(previous_steps)} unchanged)",
+                "Success: True",
+                "",
+            ]
+            for r in results:
+                lines.append(f"  {r['step_id']}. [{r.get('action', '')}] ok")
+            lines.append("")
+            lines.append(cont_msg)
+            return "\n".join(lines)
+        # else no remaining steps; fall through to write payload and return below
+
     new_payload = {
         "run_dir": run_dir,
         "plan_path": existing.get("plan_path", ""),
@@ -341,4 +445,10 @@ def re_run_existing(
         if r.get("returncode", 0) != 0:
             err = (r.get("stderr") or r.get("stdout") or "").strip()[:300]
             lines.append(f"      error: {err}")
+    if all_ok and not llm:
+        plan = load_plan_for_run(run_dir, existing)
+        plan_steps = (plan or {}).get("steps") or []
+        if plan_steps and len(plan_steps) > len(results):
+            lines.append("")
+            lines.append("All re-run steps succeeded. Remaining plan steps were not run (no LLM available to generate them).")
     return "\n".join(lines)

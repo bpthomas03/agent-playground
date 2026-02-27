@@ -7,6 +7,15 @@ data/
 /data/
 **/data/
 
+# Outputs
+outputs/
+/outputs/
+**/outputs/
+
+planning/
+/planning/
+**/planning/
+
 # Python
 __pycache__/
 *.py[cod]

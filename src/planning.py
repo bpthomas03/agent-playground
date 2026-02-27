@@ -87,7 +87,9 @@ Output a single JSON object with this exact structure (no other text before or a
       "action": "short_action_name",
       "description": "One clear sentence of what this step does.",
       "inputs": ["list", "of", "input", "paths or names"],
-      "outputs": ["list", "of", "output", "paths or names"]
+      "outputs": ["list", "of", "output", "paths or names"],
+      "output_spec": "Exact format the next step(s) will consume: e.g. 'DataFrame with columns dream_id, narrative, processed_narrative' or 'Pickle: dict with keys lda_model, vectorizer for topic labeling'.",
+      "notes": "Edge cases: e.g. 'If preprocessing removes all tokens, keep original text or a placeholder so downstream vectorization never sees empty documents.'"
     }
   ]
 }
@@ -95,9 +97,13 @@ Output a single JSON object with this exact structure (no other text before or a
 Rules:
 - action: short snake_case label (e.g. load_corpus, run_topic_model, aggregate_by_decade, export_results).
 - inputs: file paths or outputs from previous steps (e.g. ["data/clean_dreams.csv"] or ["topic_model", "corpus_df"]).
-- outputs: what this step produces (e.g. ["corpus_df"] or ["outputs/topics.csv", "outputs/theme_prevalence.csv"]).
-- Order steps so dependencies come first (load data before modeling, etc.).
-- Be specific: mention real paths (data/clean_dreams.csv), column names (subject, date, narrative), and realistic output dirs (e.g. outputs/).
+- outputs: what this step produces (e.g. ["corpus_df"] or ["outputs/topics.csv"]).
+- output_spec (required): For each step, state exactly what you write so the NEXT step can use it. E.g. step 3: "Pickle at model path: dict with keys 'lda_model', 'vectorizer'; step 4 will load this and call vectorizer.get_feature_names_out()". Step 2: "DataFrame with columns from input plus 'processed_narrative' (string); no row may have empty processed_narrative for every document—if all tokens removed, keep original narrative or a placeholder so step 3's vectorizer does not get empty vocabulary."
+- notes (required for steps that can fail on edge cases): E.g. "Empty vocabulary: ensure preprocessing never yields a corpus where every document has zero terms; use min_df=1 or retain fallback text."
+- Order steps so dependencies come first.
+- Be specific: real paths (data/clean_dreams.csv), column names (narrative, processed_narrative), and exact pickle/key contracts between steps.
+- Topic labels: Include a step that produces interpretable topic labels (e.g. after LDA: extract top N terms per topic from the model and vectorizer). Output something like topic_labels_df with columns topic_id and top_terms (or theme_label). The final visualization step must take this as an input so trajectories and plots can use human-readable theme names.
+- Final step (comparison/visualization): (1) Inputs must include the aggregated trajectory data AND the topic labels (e.g. topic_labels_df). (2) Outputs must include: theme_trajectories.csv (columns: life_stage, topic_id, topic_label or top_terms, value, group e.g. diarist/others), valence_trajectories.csv or affect_trajectories.csv (life_stage, metric, value, group), statistical_comparison_results.csv, and plot(s). (3) Plots must use interpretable theme labels on the axes (from topic_labels), not generic 'theme1', 'theme2'. These CSVs are required so the report tool and readers can interpret the trajectory data.
 """
 
 
@@ -108,6 +114,8 @@ class PlanStep:
     description: str
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
+    output_spec: str = ""
+    notes: str = ""
 
 
 @dataclass
@@ -139,6 +147,8 @@ def _parse_plan_json(text: str) -> list[PlanStep] | None:
                 description=str(s.get("description", "")),
                 inputs=list(s.get("inputs") or []),
                 outputs=list(s.get("outputs") or []),
+                output_spec=str(s.get("output_spec") or ""),
+                notes=str(s.get("notes") or ""),
             )
             for i, s in enumerate(steps, 1)
         ]
@@ -224,6 +234,8 @@ def plan_to_dict(result: PlanResult) -> dict:
                 "description": s.description,
                 "inputs": s.inputs,
                 "outputs": s.outputs,
+                "output_spec": s.output_spec,
+                "notes": s.notes,
             }
             for s in result.steps
         ],
@@ -249,6 +261,10 @@ def format_plan(result: PlanResult) -> str:
             lines.append(f"      inputs:  {s.inputs}")
         if s.outputs:
             lines.append(f"      outputs: {s.outputs}")
+        if s.output_spec:
+            lines.append(f"      output_spec: {s.output_spec}")
+        if s.notes:
+            lines.append(f"      notes: {s.notes}")
         lines.append("")
     return "\n".join(lines)
 

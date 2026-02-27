@@ -336,14 +336,35 @@ def execute_tool(arg: str, llm: "GPTAgent") -> str:
 
 
 def evaluate_tool(arg: str, llm: "GPTAgent") -> str:
-    """Evaluator: on a failed run, inspect all step code + run_result, fix any step(s), record in fix_log. Optional arg = run dir (default: latest)."""
+    """Evaluator: on a failed run, fix any step(s), record in fix_log. Optional: run_dir and/or user guidance. Examples: 'evaluate' | 'evaluate outputs/run_xxx' | 'evaluate Repeat the previous fix but for the affect columns.' | 'evaluate outputs/run_xxx Same fix for affect columns.'"""
     from src.evaluator import evaluate_and_fix
+    from src.evaluator import _project_root
+    raw = arg.strip()
+    run_dir = None
+    user_guidance = None
+    if raw:
+        parts = raw.split(maxsplit=1)
+        first = parts[0]
+        # If first token looks like a run dir path, use it as run_dir and the rest as guidance
+        if first.startswith("outputs/") or first.startswith("outputs\\") or "run_" in first:
+            run_dir = first
+            user_guidance = (parts[1].strip() if len(parts) > 1 else None) or None
+            if run_dir and not os.path.isabs(run_dir):
+                run_dir = os.path.normpath(os.path.join(_project_root(), run_dir))
+        else:
+            user_guidance = raw
+    return evaluate_and_fix(llm, run_dir=run_dir, user_guidance=user_guidance)
+
+
+def report_tool(arg: str, llm: "GPTAgent") -> str:
+    """Generate a human-language report for a successful run: NLP expert explains methods, dream expert interprets outputs. Saves report.md in the run dir. Optional arg: run_dir (default: latest run)."""
+    from src.report import generate_report
     run_dir = arg.strip() or None
-    return evaluate_and_fix(llm, run_dir=run_dir)
+    return generate_report(llm, run_dir=run_dir)
 
 
-def re_run_tool(arg: str) -> str:
-    """Re-run step_*.py in a run dir. Optional: run_dir and/or from_step (e.g. '3' or 'outputs/run_xxx 3'). Default: latest run, from_step from fix_log."""
+def re_run_tool(arg: str, llm: "GPTAgent | None" = None) -> str:
+    """Re-run step_*.py in a run dir; if all succeed and the plan has more steps, continue generating and running them. Optional: run_dir and/or from_step (e.g. '3' or 'outputs/run_xxx 3'). Default: latest run, from_step from fix_log."""
     from src.evaluator import re_run_existing, get_latest_run_dir, _project_root
     run_dir = None
     from_step = None
@@ -354,7 +375,7 @@ def re_run_tool(arg: str) -> str:
             run_dir = token
     if run_dir and not os.path.isabs(run_dir):
         run_dir = os.path.normpath(os.path.join(_project_root(), run_dir))
-    return re_run_existing(run_dir=run_dir or None, from_step=from_step)
+    return re_run_existing(run_dir=run_dir or None, from_step=from_step, llm=llm)
 
 
 class Agent:
@@ -376,7 +397,8 @@ class Agent:
             ("plan", plan_tool, True),
             ("execute", execute_tool, True),
             ("evaluate", evaluate_tool, True),
-            ("re_run", re_run_tool, False),
+            ("re_run", re_run_tool, True),
+            ("report", report_tool, True),
         ]
 
     def handle(self, user_input: str) -> str:
@@ -386,7 +408,7 @@ class Agent:
         lower = stripped.lower()
 
         for prefix, tool, use_llm in self._tools:
-            if prefix in ("ideate", "plan", "execute", "evaluate", "re_run"):
+            if prefix in ("ideate", "plan", "execute", "evaluate", "re_run", "report"):
                 matched = lower == prefix or lower.startswith(prefix + " ")
             else:
                 matched = lower.startswith(prefix + " ")
@@ -414,7 +436,7 @@ def main() -> None:
     llm = GPTAgent()
     agent = Agent(llm=llm, system_prompt=system_prompt)
 
-    print("GPT‑4.1-powered agent with tools: calc, html, suggest, read, suggest_file, run, fix, ideate, plan, execute, evaluate, re_run.")
+    print("GPT‑4.1-powered agent with tools: calc, html, suggest, read, suggest_file, run, fix, ideate, plan, execute, evaluate, re_run, report.")
     print("  calc <expr>              – calculator")
     print("  html <html>              – summarize/label HTML (no execution)")
     print("  suggest <req>            – get code suggestions (you apply manually)")
@@ -425,8 +447,9 @@ def main() -> None:
     print("  ideate                  – dream-psychology + NLP experts agree on a research question (ideation layer)")
     print("  plan [ideation-path]     – turn ideation into executable plan (default: ideation/latest.json); sees first N rows of data")
     print("  execute [plan-path]     – run the plan step by step (default: planning/latest.json); scripts and outputs in outputs/run_<ts>/")
-    print("  evaluate [run-dir]       – on failure: fix any step(s) across the run, log to fix_log.txt (default: latest run)")
+    print("  evaluate [run-dir] [guidance] – on failure: fix step(s), log to fix_log.txt; optional guidance overrides 'don't repeat' (e.g. 'Same fix for affect columns')")
     print("  re_run [run-dir] [N]     – re-run step_*.py from step N (or from last fix); default: latest run, from_step from fix_log")
+    print("  report [run-dir]         – write report.md: NLP expert (methods) + dream expert (interpretation); default: latest run")
     print("  exit / quit              – quit")
     print("\n  Tip: to see saved files in your repo, run Docker with the volume BEFORE the image:")
     print('       PowerShell: docker run -it --rm --env-file .env -v "${PWD}:/app" agent-playground')
